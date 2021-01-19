@@ -1,3 +1,11 @@
+*.dcm
+.node-persist
+import
+config/development.js
+config/production.js
+keycloak.json
+data
+
 # Logs
 logs
 *.log

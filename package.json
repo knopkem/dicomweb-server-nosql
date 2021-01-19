@@ -1,0 +1,62 @@
+{
+  "name": "dicomweb-server-nosql",
+  "version": "0.0.1",
+  "description": "A self contained easy to use archive with DICOMWEB support with mongodb backend",
+  "main": "app.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "nodemon src/app.js",
+    "import": "node src/import.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/knopkem/dicomweb-pacs.git"
+  },
+  "keywords": [
+    "DICOMWEB",
+    "PACS",
+    "ARCHIVE",
+    "DIMSE",
+    "DICOM",
+    "STORE",
+    "MOVE",
+    "GET",
+    "FIND",
+    "SCP",
+    "SCU",
+    "OHIF",
+    "VIEWER",
+    "ORTHANC",
+    "DCMTK",
+    "DCM4CHEE",
+    "PACSONE",
+    "CONQUEST"
+  ],
+  "author": "Michael Knopke",
+  "license": "MIT",
+  "dependencies": {
+    "config": "^3.3.2",
+    "dicom": "^0.4.4",
+    "dicom-data-dictionary": "^0.3.1",
+    "dicom-parser": "^1.8.7",
+    "fastify": "^3.5.1",
+    "fastify-cors": "^4.1.0",
+    "fastify-static": "^3.2.1",
+    "mongodb": "^3.6.3",
+    "shelljs": "^0.8.4",
+    "simple-node-logger": "^18.12.24"
+  },
+  "devDependencies": {
+    "eslint": "^7.10.0",
+    "eslint-config-airbnb": "^18.1.0",
+    "eslint-config-prettier": "^6.10.1",
+    "eslint-plugin-import": "^2.20.1",
+    "eslint-plugin-jsx-a11y": "^6.2.3",
+    "eslint-plugin-prettier": "^3.1.2",
+    "nodemon": "^2.0.7",
+    "prettier": "^1.19.1",
+    "webpack": "^5.15.0",
+    "webpack-cli": "^4.3.1",
+    "webpack-dev-server": "^3.11.2"
+  }
+}
