@@ -6,12 +6,8 @@ const dicomParser = require('dicom-parser');
 const crypto = require('crypto');
 const fastify = require('fastify')({ logger: false });
 const { Readable } = require('stream');
-
-// make sure default directories exist
-shell.mkdir('-p', config.get('logDir'));
-shell.mkdir('-p', config.get('storagePath'));
-
 const utils = require('./utils.js');
+const logger = utils.getLogger();
 
 fastify.register(require('fastify-static'), {
   root: path.join(__dirname, '../public')
@@ -19,8 +15,6 @@ fastify.register(require('fastify-static'), {
 
 fastify.register(require('fastify-cors'), { 
 });
-
-const logger = utils.getLogger();
 
 let _collection = null;
 

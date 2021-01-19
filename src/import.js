@@ -1,12 +1,6 @@
 
 const config = require('config');
 const utils = require('./utils.js');
-const shell = require('shelljs');
-
-shell.mkdir('-p', config.get('logDir'));
-shell.mkdir('-p', config.get('storagePath'));
-shell.mkdir('-p', config.get('importDir'));
-
 const logger = utils.getLogger();
 
 process.on('uncaughtException', (err) => {

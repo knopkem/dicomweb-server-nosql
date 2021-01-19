@@ -1,23 +1,13 @@
 const dict = require("dicom-data-dictionary");
+const config = require('config');
 const fs = require("fs");
 const dicom = require("dicom");
 const MongoClient = require("mongodb").MongoClient;
 const path = require('path');
-const { storagePath } = require("../config/default");
-const shell = require('shelljs');
 const dictionary = new dict.DataElementDictionary();
-
-// create a rolling file logger based on date/time that fires process events
-const opts = {
-  errorEventName: "error",
-  logDirectory: "./logs", // NOTE: folder must exist and be writable...
-  fileNamePattern: "roll-<DATE>.log",
-  dateFormat: "YYYY.MM.DD",
-};
 const manager = require("simple-node-logger").createLogManager();
-// manager.createConsoleAppender();
-manager.createRollingFileAppender(opts);
-const logger = manager.createLogger();
+
+let logger = null;
 
 async function* getFiles(dir) {
     const dirents = await fs.promises.readdir(dir, { withFileTypes: true });
@@ -59,11 +49,28 @@ const findDicomName = (name) => {
 
 const utils = {
   getLogger: () => {
+
+    if (!logger) {
+        const logDirectory = config.get('logDir');
+        utils.mkdir(logDirectory);
+        logger = manager.createLogger();
+        // create a rolling file logger based on date/time that fires process events
+        const opts = {
+            errorEventName: "error",
+            logDirectory: logDirectory, // NOTE: folder must exist and be writable...
+            fileNamePattern: "roll-<DATE>.log",
+            dateFormat: "YYYY.MM.DD",
+        };
+        manager.createRollingFileAppender(opts);
+    }
     return logger;
   },
   connectDatabase: () => {
     const url = "mongodb://localhost:27017";
     const dbName = "archive";
+
+    utils.mkdir(config.get('storagePath'));
+    utils.mkdir(config.get('importDir'));
 
     return new Promise((resolve, reject) => {
       MongoClient.connect(url, { useUnifiedTopology: true }, (err, client) => {
@@ -100,6 +107,11 @@ const utils = {
         }
       });
     });
+  },
+  mkdir: (filepath) => {
+    if (!fs.existsSync(filepath)) {
+        fs.mkdirSync(filepath,'0777', true);
+    }
   },
   doFind: (queryLevel, query, defaults, collection) => {
     const tags = [];
@@ -194,14 +206,14 @@ const utils = {
       });
     });
   },
-  async doImport(sourcePath, targetPath, collection, ) {
+   doImport: async (sourcePath, targetPath, collection ) => {
     return new Promise( async (resolve, reject) => {
 
         let count = 0;
         for await (const file of getFiles(sourcePath)) {
             logger.info(`parsing ${file}`);
             try {
-                json = await this.parseDicom(file);
+                json = await utils.parseDicom(file);
             } catch (error) {
                 logger.error(error);
             }
@@ -209,7 +221,7 @@ const utils = {
                 const studyUID = json['0020000D'].Value[0];
                 const sopUID = json['00080018'].Value[0];
                 const studyDirectory = path.join(targetPath, studyUID);
-                shell.mkdir('-p', studyDirectory);
+                utils.mkdir(studyDirectory);
                 const outFile = path.join(studyDirectory, sopUID);
                 // copy file
                 fs.createReadStream(file).pipe(fs.createWriteStream(outFile));
@@ -226,7 +238,7 @@ const utils = {
         resolve(count);
     });
   },
-  parseDicom(filename) {
+  parseDicom: (filename) => {
     return new Promise((resolve, reject) => {
         try {
             const decoder = dicom.decoder({ guess_header: true });

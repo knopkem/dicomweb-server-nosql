@@ -43,7 +43,6 @@
     "fastify-cors": "^4.1.0",
     "fastify-static": "^3.2.1",
     "mongodb": "^3.6.3",
-    "shelljs": "^0.8.4",
     "simple-node-logger": "^18.12.24"
   },
   "devDependencies": {
