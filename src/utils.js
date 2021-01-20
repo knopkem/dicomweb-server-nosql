@@ -212,6 +212,7 @@ const utils = {
   doImport: async (sourcePath, targetPath, collection) => {
       const list = await rra.list(sourcePath);
 
+      logger.info('parsing...');
       const parsePromises = [];
       list.forEach((item) => {
           if (!item.isDirectory) {
@@ -219,6 +220,7 @@ const utils = {
           }
       });
       const results = await Promise.all(parsePromises);
+      logger.info('importing...');
 
       const copyPromises = [];
       const insertPromises = [];
@@ -236,13 +238,14 @@ const utils = {
         // insert into db
         logger.info(`inserting json into mongo db.`);
         insertPromises.push(utils.insertOne(collection, json));
-        copyPromises.push(utils.insertOne(collection, json));
       });
-      const res = await Promise.all(insertPromises); 
+      await Promise.all(copyPromises); 
+      const res = await Promise.all(insertPromises);
+      logger.info('finished importing.');
       return res.length;
   },
   parseDicom: (filename) => {
-    logger.info(`Parsing DICOM file (${filename}).`);
+    // logger.info(`Parsing DICOM file (${filename}).`);
     return new Promise((resolve, reject) => {
       try {
         const decoder = dicom.decoder({ guess_header: true });
@@ -252,7 +255,7 @@ const utils = {
             logger.error(err);
             reject(err);
           }
-          logger.info(`DICOM file (${filename}) successfully parsed.`);
+          // logger.info(`DICOM file (${filename}) successfully parsed.`);
           // eslint-disable-next-line no-param-reassign
           json.filepath = filename;
           resolve(json);
