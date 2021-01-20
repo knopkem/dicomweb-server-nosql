@@ -1,6 +1,7 @@
 
 const config = require('config');
 const utils = require('./utils.js');
+
 const logger = utils.getLogger();
 
 process.on('uncaughtException', (err) => {

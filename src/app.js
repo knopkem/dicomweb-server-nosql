@@ -1,5 +1,4 @@
 const config = require('config');
-const shell = require('shelljs');
 const fs = require('fs');
 const path = require('path');
 const dicomParser = require('dicom-parser');
@@ -7,6 +6,7 @@ const crypto = require('crypto');
 const fastify = require('fastify')({ logger: false });
 const { Readable } = require('stream');
 const utils = require('./utils.js');
+
 const logger = utils.getLogger();
 
 fastify.register(require('fastify-static'), {
@@ -16,7 +16,7 @@ fastify.register(require('fastify-static'), {
 fastify.register(require('fastify-cors'), { 
 });
 
-let _collection = null;
+let collection = null;
 
 // log exceptions
 process.on('uncaughtException', (err) => {
@@ -49,7 +49,7 @@ fastify.get('/rs/studies', async (req, reply) => {
     '00201208',
   ];
 
-  const json = await utils.doFind('STUDY', req.query, tags, _collection);
+  const json = await utils.doFind('STUDY', req.query, tags, collection);
   reply.send(json);
 });
 
@@ -74,7 +74,7 @@ fastify.get(
     const { query } = req;
     query.StudyInstanceUID = req.params.studyInstanceUid;
 
-    const json = await utils.doFind('SERIES', query, tags, _collection);
+    const json = await utils.doFind('SERIES', query, tags, collection);
     reply.send(json);
   }
 );
@@ -100,7 +100,7 @@ fastify.get(
     const { query } = req;
     query.StudyInstanceUID = req.params.studyInstanceUid;
 
-    const json = await utils.doFind('SERIES', query, tags, _collection);
+    const json = await utils.doFind('SERIES', query, tags, collection);
     reply.send(json);
   }
 );
@@ -120,7 +120,7 @@ fastify.get(
     query.StudyInstanceUID = req.params.studyInstanceUid;
     query.SeriesInstanceUID = req.params.seriesInstanceUid;
 
-    const json = await utils.doFind('IMAGE', query, tags, _collection);
+    const json = await utils.doFind('IMAGE', query, tags, collection);
     reply.send(json);
   }
 );
@@ -155,7 +155,7 @@ fastify.get(
     query.StudyInstanceUID = req.params.studyInstanceUid;
     query.SeriesInstanceUID = req.params.seriesInstanceUid;
 
-    const json = await utils.doFind('IMAGE', query, tags, _collection);
+    const json = await utils.doFind('IMAGE', query, tags, collection);
     reply.send(json);
   }
 );
@@ -167,9 +167,7 @@ fastify.get(
   async (req, reply) => {
     const {
       studyInstanceUid,
-      seriesInstanceUid,
       sopInstanceUid,
-      frame,
     } = req.params;
 
     const storagePath = config.get('storagePath');
@@ -237,7 +235,7 @@ fastify.get('/viewer/wadouri/', async (req, reply) => {
   if (!studyUid || !seriesUid || !imageUid) {
     const msg = `Error missing parameters.`;
     logger.error(msg);
-    reply.code = 500;
+    reply.code(500);
     reply.send(msg);
     return;
   }
@@ -256,7 +254,7 @@ fastify.get('/viewer/wadouri/', async (req, reply) => {
     if (err) {
       const msg = `Error getting the file: ${err}.`;
       logger.error(msg);
-      reply.code = 500;
+      reply.code(500);
       reply.send(msg);
     }
     reply.send(data);
@@ -267,13 +265,13 @@ fastify.get('/viewer/wadouri/', async (req, reply) => {
 
 const port= config.get('webserverPort');
 logger.info('starting...');
-fastify.listen(port, async (err, address) => {
+fastify.listen(port, async (err) => {
   if (err) {
     logger.error(err);
     process.exit(1);
   }
   logger.info(`web-server listening on port: ${port}`);
-  _collection = await utils.connectDatabase();
+  collection = await utils.connectDatabase();
 });
 
 //------------------------------------------------------------------

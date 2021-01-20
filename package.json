@@ -43,6 +43,7 @@
     "fastify-cors": "^4.1.0",
     "fastify-static": "^3.2.1",
     "mongodb": "^3.6.3",
+    "recursive-readdir-async": "^1.1.8",
     "simple-node-logger": "^18.12.24"
   },
   "devDependencies": {
@@ -52,10 +53,9 @@
     "eslint-plugin-import": "^2.20.1",
     "eslint-plugin-jsx-a11y": "^6.2.3",
     "eslint-plugin-prettier": "^3.1.2",
+    "eslint-plugin-react": "^7.22.0",
+    "eslint-plugin-react-hooks": "^4.2.0",
     "nodemon": "^2.0.7",
-    "prettier": "^1.19.1",
-    "webpack": "^5.15.0",
-    "webpack-cli": "^4.3.1",
-    "webpack-dev-server": "^3.11.2"
+    "prettier": "^1.19.1"
   }
 }

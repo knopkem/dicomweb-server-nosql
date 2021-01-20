@@ -1,25 +1,15 @@
 const dict = require("dicom-data-dictionary");
-const config = require('config');
+const rra = require("recursive-readdir-async");
+const config = require("config");
 const fs = require("fs");
+const fsPromises = require('fs').promises;
+const path = require("path");
 const dicom = require("dicom");
-const MongoClient = require("mongodb").MongoClient;
-const path = require('path');
-const dictionary = new dict.DataElementDictionary();
+const { MongoClient } = require("mongodb");
 const manager = require("simple-node-logger").createLogManager();
 
+const dictionary = new dict.DataElementDictionary();
 let logger = null;
-
-async function* getFiles(dir) {
-    const dirents = await fs.promises.readdir(dir, { withFileTypes: true });
-    for (const dirent of dirents) {
-      const res = path.resolve(dir, dirent.name);
-      if (dirent.isDirectory()) {
-        yield* getFiles(res);
-      } else {
-        yield res;
-      }
-    }
-  }
 
 //------------------------------------------------------------------
 
@@ -49,19 +39,18 @@ const findDicomName = (name) => {
 
 const utils = {
   getLogger: () => {
-
     if (!logger) {
-        const logDirectory = config.get('logDir');
-        utils.mkdir(logDirectory);
-        logger = manager.createLogger();
-        // create a rolling file logger based on date/time that fires process events
-        const opts = {
-            errorEventName: "error",
-            logDirectory: logDirectory, // NOTE: folder must exist and be writable...
-            fileNamePattern: "roll-<DATE>.log",
-            dateFormat: "YYYY.MM.DD",
-        };
-        manager.createRollingFileAppender(opts);
+      const logDirectory = config.get("logDir");
+      utils.mkdir(logDirectory);
+      logger = manager.createLogger();
+      // create a rolling file logger based on date/time that fires process events
+      const opts = {
+        errorEventName: "error",
+        logDirectory, // NOTE: folder must exist and be writable...
+        fileNamePattern: "roll-<DATE>.log",
+        dateFormat: "YYYY.MM.DD",
+      };
+      manager.createRollingFileAppender(opts);
     }
     return logger;
   },
@@ -69,8 +58,8 @@ const utils = {
     const url = "mongodb://localhost:27017";
     const dbName = "archive";
 
-    utils.mkdir(config.get('storagePath'));
-    utils.mkdir(config.get('importDir'));
+    utils.mkdir(config.get("storagePath"));
+    utils.mkdir(config.get("importDir"));
 
     return new Promise((resolve, reject) => {
       MongoClient.connect(url, { useUnifiedTopology: true }, (err, client) => {
@@ -110,7 +99,7 @@ const utils = {
   },
   mkdir: (filepath) => {
     if (!fs.existsSync(filepath)) {
-        fs.mkdirSync(filepath,'0777', true);
+      fs.mkdirSync(filepath, "0777", true);
     }
   },
   doFind: (queryLevel, query, defaults, collection) => {
@@ -120,34 +109,34 @@ const utils = {
     Object.keys(query).forEach((propName) => {
       const tag = findDicomName(propName);
       if (tag) {
-        let v = query[propName];
+        const v = query[propName];
         tags.push({ key: tag, value: v });
       }
     });
 
     // run query on mongo db and return json response
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const queries = [];
       const attributes = defaults;
       tags.forEach((tag) => {
         const attribute = tag.key;
         attributes.push(attribute);
         const element = dictionary.lookup(attribute);
-        const prop = attribute + ".Value";
-        let query = {};
+        const prop = `${attribute}.Value`;
+        const findQuery = {};
 
         // filter out all tags that do not have a direct mapping to a file attribute (e.g. ModalitiesInStudy)
         // todo: add missing
         const modalitiesInStudy = "00080061";
         if (attribute === modalitiesInStudy) {
-          query["00080060.Value"] = {
+          findQuery["00080060.Value"] = {
             $elemMatch: { $regex: tag.value, $options: "i" },
           };
         }
         // work around PN syntax that differs from normal use
         else if (element.vr === "PN") {
           const value = tag.value.replace("*", ".*");
-          query[prop] = {
+          findQuery[prop] = {
             $elemMatch: { Alphabetic: { $regex: value, $options: "i" } },
           };
         }
@@ -158,11 +147,13 @@ const utils = {
           element.vr === "DT"
         ) {
           const range = tag.value.split("-");
-          query[prop] = { $elemMatch: { $gte: range[0], $lte: range[1] } };
+          findQuery[prop] = { $elemMatch: { $gte: range[0], $lte: range[1] } };
         } else {
-          query[prop] = { $elemMatch: { $regex: tag.value, $options: "i" } };
+          findQuery[prop] = {
+            $elemMatch: { $regex: tag.value, $options: "i" },
+          };
         }
-        queries.push(query);
+        queries.push(findQuery);
       });
 
       // no perform search
@@ -194,74 +185,85 @@ const utils = {
           const filtered = Object.keys(doc)
             .filter((key) => attributes.includes(key))
             .reduce((obj, key) => {
-              obj[key] = doc[key];
-              return obj;
+              const newObj = obj;
+              newObj[key] = doc[key];
+              return newObj;
             }, {});
           result.push(filtered);
         });
 
         // finally return result
-        //logger.info(result);
+        // logger.info(result);
         resolve(result);
       });
     });
   },
-   doImport: async (sourcePath, targetPath, collection ) => {
-    return new Promise( async (resolve, reject) => {
-
-        let count = 0;
-        for await (const file of getFiles(sourcePath)) {
-            logger.info(`parsing ${file}`);
-            try {
-                json = await utils.parseDicom(file);
-            } catch (error) {
-                logger.error(error);
+  insertOne: (collection, json) => {
+    return new Promise((resolve, reject) => {
+        collection.insertOne(json, (err, result) => {
+            if (err) {
+                reject(err);
+            } else {
+                resolve(result);
             }
-            if (json) {
-                const studyUID = json['0020000D'].Value[0];
-                const sopUID = json['00080018'].Value[0];
-                const studyDirectory = path.join(targetPath, studyUID);
-                utils.mkdir(studyDirectory);
-                const outFile = path.join(studyDirectory, sopUID);
-                // copy file
-                fs.createReadStream(file).pipe(fs.createWriteStream(outFile));
-                // insert into db
-                collection.insertOne(json, (err, result) => {
-                if (err) {
-                    logger.error(err);
-                } else {
-                    count++;
-                }
-                });
-            }
-        }
-        resolve(count);
+        });
     });
   },
-  parseDicom: (filename) => {
-    return new Promise((resolve, reject) => {
-        try {
-            const decoder = dicom.decoder({ guess_header: true });
-            const encoder = new dicom.json.JsonEncoder();
-            const sink = new dicom.json.JsonSink((err, json) => {
-              if (err) {
-                logger.error(err);
-                reject(err);
-              }
-              logger.info(
-                "DICOM file successfully parsed. Now inserting into mongo db."
-              );
-              console.log('resolving');
-              resolve(json);
-            });
-            fs.createReadStream(filename)
-              .pipe(decoder)
-              .pipe(encoder)
-              .pipe(sink);
-        } catch (error) {
-            reject(error);
-        }
+  doImport: async (sourcePath, targetPath, collection) => {
+      const list = await rra.list(sourcePath);
 
+      const parsePromises = [];
+      list.forEach((item) => {
+          if (!item.isDirectory) {
+            parsePromises.push(utils.parseDicom(item.fullname));
+          }
+      });
+      const results = await Promise.all(parsePromises);
+
+      const copyPromises = [];
+      const insertPromises = [];
+      results.forEach((json) => {
+
+        logger.info(`copying file to archive directory.`);
+        const studyUID = json['0020000D'].Value[0];
+        const sopUID = json['00080018'].Value[0];
+        const studyDirectory = path.join(targetPath, studyUID);
+        utils.mkdir(studyDirectory);
+        const outfile = path.join(studyDirectory, sopUID);
+        // copy file
+        copyPromises.push(fsPromises.copyFile(json.filepath, outfile));
+
+        // insert into db
+        logger.info(`inserting json into mongo db.`);
+        insertPromises.push(utils.insertOne(collection, json));
+        copyPromises.push(utils.insertOne(collection, json));
+      });
+      const res = await Promise.all(insertPromises); 
+      return res.length;
+  },
+  parseDicom: (filename) => {
+    logger.info(`Parsing DICOM file (${filename}).`);
+    return new Promise((resolve, reject) => {
+      try {
+        const decoder = dicom.decoder({ guess_header: true });
+        const encoder = new dicom.json.JsonEncoder();
+        const sink = new dicom.json.JsonSink((err, json) => {
+          if (err) {
+            logger.error(err);
+            reject(err);
+          }
+          logger.info(`DICOM file (${filename}) successfully parsed.`);
+          // eslint-disable-next-line no-param-reassign
+          json.filepath = filename;
+          resolve(json);
+        });
+        fs.createReadStream(filename)
+          .pipe(decoder)
+          .pipe(encoder)
+          .pipe(sink);
+      } catch (error) {
+        reject(error);
+      }
     });
   },
 };
