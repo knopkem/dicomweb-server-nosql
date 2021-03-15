@@ -1,3 +1,5 @@
+[deprecated]: please use: https://github.com/knopkem/dicomweb-archive instead
+
 # dicomweb-server-nosql
 
 An easy to use DICOMWEB server with mongo db backend
