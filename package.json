@@ -41,7 +41,7 @@
     "dicom-parser": "^1.8.7",
     "fastify": "^3.5.1",
     "fastify-cors": "^4.1.0",
-    "fastify-static": "^3.2.1",
+    "fastify-static": "^4.2.4",
     "mongodb": "^3.6.3",
     "recursive-readdir-async": "^1.1.8",
     "simple-node-logger": "^18.12.24"
