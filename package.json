@@ -39,7 +39,7 @@
     "dicom": "^0.4.4",
     "dicom-data-dictionary": "^0.3.1",
     "dicom-parser": "^1.8.7",
-    "fastify": "^3.5.1",
+    "fastify": "^5.7.3",
     "fastify-cors": "^4.1.0",
     "fastify-static": "^4.2.4",
     "mongodb": "^3.6.3",
